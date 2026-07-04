@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GazeChase - Eye Trainer & Rhythm Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:     #080c14;
+      --glass:  rgba(15,23,38,0.82);
+      --blue:   #4f8fff;
+      --green:  #00e5a0;
+      --gold:   #ffd060;
+      --purple: #a040ff;
+      --muted:  #6b80a8;
+      --border: rgba(79,143,255,0.20);
+      --font:   'Outfit', sans-serif;
+    }
+    html,body { width:100%;height:100%;font-family:var(--font);background:var(--bg);color:#e8f0ff;overflow:hidden;user-select:none; }
+
+    #starfield { position:fixed;inset:0;z-index:0;pointer-events:none; }
+
+    /* ── Screens ── */
+    .screen {
+      position:fixed;inset:0;z-index:10;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+      transition:opacity 0.4s,visibility 0.4s;
+    }
+    .screen.hidden{opacity:0;visibility:hidden;pointer-events:none;}
+
+    #screen-start { background:radial-gradient(ellipse at 50% 28%,rgba(79,143,255,0.13) 0%,transparent 68%); }
+
+    .logo {
+      font-size:clamp(2rem,5vw,4rem);font-weight:900;letter-spacing:-2px;
+      background:linear-gradient(135deg,#4f8fff 0%,#00e5a0 50%,#ffd060 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      filter:drop-shadow(0 0 22px rgba(79,143,255,0.6));
+    }
+    .tagline { font-size:clamp(0.8rem,1.8vw,0.95rem);color:var(--muted);font-weight:300;text-align:center;max-width:440px;line-height:1.6; }
+
+    /* ── Mode tabs ── */
+    .mode-tabs { display:flex;gap:6px;width:100%; }
+    .mtab {
+      flex:1;padding:12px 6px;border-radius:14px;
+      border:2px solid var(--border);background:transparent;
+      color:var(--muted);font-family:var(--font);font-size:0.8rem;font-weight:600;
+      cursor:pointer;text-align:center;transition:all 0.2s;
+    }
+    .mtab.active { border-color:var(--blue);color:#e8f0ff;background:rgba(79,143,255,0.13); }
+    .mtab-icon { font-size:1.2rem;display:block;margin-bottom:2px; }
+
+    /* ── Card ── */
+    .card {
+      background:var(--glass);border:1px solid var(--border);border-radius:22px;
+      backdrop-filter:blur(22px);padding:24px 30px;
+      display:flex;flex-direction:column;align-items:center;gap:14px;
+      min-width:360px;max-width:460px;width:92vw;
+      box-shadow:0 8px 48px rgba(0,0,0,0.5);
+      max-height: 85vh; overflow-y: auto;
+    }
+
+    .sec-label { font-size:0.68rem;text-transform:uppercase;letter-spacing:2.5px;color:var(--muted);width:100%; }
+
+    /* ── Select Dropdown ── */
+    .styled-select {
+      width: 100%; padding: 10px 14px; border-radius: 12px;
+      background: rgba(107,128,168,0.15); border: 1px solid var(--border);
+      color: #fff; font-family: var(--font); font-size: 0.9rem;
+      outline: none; cursor: pointer;
+    }
+    .styled-select option { background: #0f1726; color: #fff; }
+
+    /* ── Color picker ── */
+    .color-row { display:flex;gap:8px;flex-wrap:wrap;width:100%;align-items:center; }
+    .color-swatch {
+      width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;
+      transition:transform 0.18s,border-color 0.18s,box-shadow 0.18s;flex-shrink:0;
+    }
+    .color-swatch:hover { transform:scale(1.18); }
+    .color-swatch.sel { border-color:#fff;box-shadow:0 0 10px currentColor; }
+    #custom-color-wrap { position:relative;width:28px;height:28px;flex-shrink:0; }
+    #custom-color-wrap label {
+      width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;
+      background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);
+      border:2px solid transparent;font-size:0.7rem;transition:transform 0.18s;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.7);
+    }
+    #custom-color-wrap label:hover { transform:scale(1.18); }
+    #custom-color-wrap label.sel { border-color:#fff; }
+    #custom-color-input { position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border-radius:50%; }
+
+    /* ── Toggle row ── */
+    .toggle-row { display:flex;justify-content:space-between;align-items:center;width:100%; }
+    .toggle-label { font-size:0.8rem;color:#e8f0ff;font-weight:500; }
+    .toggle-sub   { font-size:0.68rem;color:var(--muted); }
+    .toggle-switch { position:relative;width:42px;height:24px;flex-shrink:0; }
+    .toggle-switch input { display:none; }
+    .toggle-switch label {
+      position:absolute;inset:0;background:rgba(107,128,168,0.3);border-radius:50px;
+      cursor:pointer;transition:background 0.25s;border:1px solid var(--border);
+    }
+    .toggle-switch label::after {
+      content:'';position:absolute;top:2px;left:2px;
+      width:18px;height:18px;border-radius:50%;background:#fff;
+      transition:transform 0.25s;box-shadow:0 2px 6px rgba(0,0,0,0.4);
+    }
+    .toggle-switch input:checked+label { background:var(--blue); }
+    .toggle-switch input:checked+label::after { transform:translateX(18px); }
+
+    /* ── Sensitivity & Sliders ── */
+    .sen-row { width:100%;display:flex;flex-direction:column;gap:6px; }
+    .sen-header { display:flex;justify-content:space-between;align-items:center; }
+    .sen-val { font-size:1rem;font-weight:700;color:var(--gold); }
+    input[type=range] {
+      -webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:6px;outline:none;cursor:pointer;
+      background:linear-gradient(to right,var(--blue) 0%,var(--blue) var(--pct,50%),rgba(79,143,255,0.18) var(--pct,50%),rgba(79,143,255,0.18) 100%);
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance:none;width:20px;height:20px;border-radius:50%;
+      background:radial-gradient(circle at 38% 32%,#fff 0%,var(--blue) 70%);
+      box-shadow:0 0 10px rgba(79,143,255,0.8);cursor:grab;transition:transform 0.15s;
+    }
+    input[type=range]::-webkit-slider-thumb:active { cursor:grabbing;transform:scale(1.25); }
+    .sen-marks { display:flex;justify-content:space-between;font-size:0.62rem;color:var(--muted); }
+
+    .divider { width:100%;height:1px;background:var(--border); }
+
+    /* ── Buttons ── */
+    .btn {
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      padding:12px 28px;border-radius:50px;border:none;cursor:pointer;
+      font-family:var(--font);font-size:0.95rem;font-weight:600;
+      transition:transform 0.18s,box-shadow 0.18s,filter 0.18s;
+    }
+    .btn:hover { transform:translateY(-2px);filter:brightness(1.1); }
+    .btn:active { transform:translateY(0); }
+    .btn-primary { background:linear-gradient(135deg,#4f8fff,#a040ff);color:#fff;box-shadow:0 4px 22px rgba(79,143,255,0.4); }
+    .btn-primary:hover { box-shadow:0 8px 36px rgba(79,143,255,0.6); }
+    .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--muted); }
+    .btn-ghost:hover { color:#e8f0ff;border-color:rgba(79,143,255,0.5); }
+    .btn-watch { background:linear-gradient(135deg,#00e5a0,#4f8fff);color:#fff;box-shadow:0 4px 22px rgba(0,229,160,0.35); }
+    .btn-watch:hover { box-shadow:0 8px 36px rgba(0,229,160,0.55); }
+    .btn-osu { background:linear-gradient(135deg,#ff33c0,#ff7a20);color:#fff;box-shadow:0 4px 22px rgba(255,51,192,0.35); }
+    .btn-osu:hover { box-shadow:0 8px 36px rgba(255,51,192,0.55); }
+
+    /* ── Cursor dot ── */
+    #cursor-dot {
+      position:fixed;z-index:50;pointer-events:none;width:18px;height:18px;border-radius:50%;
+      background:radial-gradient(circle,rgba(255,255,255,0.95) 0%,rgba(79,143,255,0.6) 55%,transparent 100%);
+      border:1.5px solid rgba(79,143,255,0.8);transform:translate(-50%,-50%);
+      box-shadow:0 0 14px rgba(79,143,255,0.9);display:none;
+    }
+    /* osu cursor */
+    #cursor-osu {
+      position:fixed;z-index:50;pointer-events:none;width:24px;height:24px;border-radius:50%;
+      background:transparent;border:3px solid #ff33c0;transform:translate(-50%,-50%);
+      box-shadow:0 0 10px #ff33c0;display:none;
+    }
+    #cursor-osu::after { content:'';position:absolute;inset:4px;background:#fff;border-radius:50%; }
+
+    /* ── Countdown ── */
+    #countdown-overlay {
+      position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;
+      background:rgba(8,12,20,0.75);pointer-events:none;
+    }
+    #countdown-overlay.hidden { display:none; }
+    #countdown-num {
+      font-size:14vw;font-weight:900;color:#fff;
+      filter:drop-shadow(0 0 48px rgba(79,143,255,0.9));
+      animation:cPop 0.85s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    @keyframes cPop { from{transform:scale(2.5);opacity:0}to{transform:scale(1);opacity:1} }
+
+    /* ── Game canvas ── */
+    #gameCanvas { position:fixed;inset:0;z-index:5;width:100%;height:100%;display:block; }
+    #gameCanvas.hidden { display:none; }
+
+    /* ── HUD ── */
+    #hud {
+      position:fixed;top:0;left:0;right:0;z-index:20;
+      display:flex;align-items:center;justify-content:space-between;padding:14px 26px;
+      background:linear-gradient(to bottom,rgba(8,12,20,0.9) 0%,transparent 100%);
+      pointer-events:none;
+    }
+    #hud.hidden { display:none; }
+    .hb { display:flex;flex-direction:column;gap:1px; }
+    .hl { font-size:0.6rem;text-transform:uppercase;letter-spacing:2.5px;color:var(--muted); }
+    .hv { font-size:1.8rem;font-weight:700;line-height:1; }
+    #h-score  { color:var(--gold); }
+    #h-streak { color:var(--green); }
+    #h-time   { color:var(--blue); }
+
+    /* Tracking pill */
+    #tpill {
+      display:flex;align-items:center;gap:8px;padding:7px 16px;border-radius:50px;
+      background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(10px);
+      font-size:0.78rem;font-weight:600;transition:border-color 0.3s,background 0.3s;
+    }
+    #tpill.on  { border-color:rgba(0,229,160,0.5);background:rgba(0,229,160,0.1); }
+    #tpill.off { border-color:rgba(255,51,85,0.4);background:rgba(255,51,85,0.07); }
+    .pdot { width:8px;height:8px;border-radius:50%;transition:background 0.3s; }
+    #tpill.on  .pdot { background:var(--green);box-shadow:0 0 8px rgba(0,229,160,0.9);animation:pDot 1.2s ease-in-out infinite; }
+    #tpill.off .pdot { background:#ff3355;box-shadow:0 0 8px rgba(255,51,85,0.8); }
+
+    /* Watch mode HUD */
+    #watch-hud {
+      position:fixed;bottom:0;left:0;right:0;z-index:20;
+      display:flex;align-items:center;justify-content:space-between;
+      padding:16px 26px 20px;
+      background:linear-gradient(to top,rgba(8,12,20,0.9) 0%,transparent 100%);
+      pointer-events:none;
+    }
+    #watch-hud.hidden { display:none; }
+    #watch-timer { font-size:1.5rem;font-weight:700;color:var(--green); }
+    .watch-label { font-size:0.65rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted); }
+
+    /* osu mode HUD */
+    #osu-hud {
+      position:fixed;top:0;left:0;right:0;z-index:20;
+      display:flex;align-items:center;justify-content:space-between;padding:14px 26px;
+      pointer-events:none;
+    }
+    #osu-hud.hidden { display:none; }
+    #osu-score { font-size:2rem;font-weight:900;color:var(--gold);text-shadow:0 2px 10px rgba(0,0,0,0.5); }
+    #osu-combo { font-size:2.5rem;font-weight:900;color:#ff33c0;text-shadow:0 2px 10px rgba(0,0,0,0.5); }
+    #osu-acc { font-size:1rem;color:var(--green);font-weight:700; }
+
+    /* Floating controls panel */
+    #game-ctrl {
+      position:fixed;bottom:22px;right:26px;z-index:20;
+      display:flex;gap:10px;align-items:center;
+    }
+    #game-ctrl.hidden { display:none; }
+
+    /* In-game quick settings bar (Watch mode only) */
+    #quick-bar {
+      position:fixed;top:72px;right:16px;z-index:22;
+      display:flex;flex-direction:column;gap:8px;align-items:flex-end;
+      pointer-events:all;
+    }
+    #quick-bar.hidden { display:none; }
+
+    .qbtn {
+      display:flex;align-items:center;gap:7px;
+      background:var(--glass);border:1px solid var(--border);
+      backdrop-filter:blur(12px);border-radius:50px;
+      padding:6px 14px;font-size:0.75rem;font-weight:600;
+      color:var(--muted);cursor:pointer;
+      transition:all 0.2s;
+    }
+    .qbtn:hover { color:#e8f0ff;border-color:rgba(79,143,255,0.5); }
+    .qbtn.active { color:var(--green);border-color:rgba(0,229,160,0.4);background:rgba(0,229,160,0.09); }
+    .qbtn-dot { width:10px;height:10px;border-radius:50%; }
+
+    #qb-colors {
+      display:flex;gap:6px;align-items:center;
+      background:var(--glass);border:1px solid var(--border);
+      backdrop-filter:blur(12px);border-radius:50px;padding:7px 12px;
+    }
+    .qswatch {
+      width:20px;height:20px;border-radius:50%;cursor:pointer;
+      border:2px solid transparent;transition:transform 0.18s,border-color 0.18s;flex-shrink:0;
+    }
+    .qswatch:hover { transform:scale(1.25); }
+    .qswatch.sel { border-color:#fff;box-shadow:0 0 8px currentColor; }
+
+    #sen-indicator {
+      position:fixed;bottom:22px;left:26px;z-index:20;
+      display:flex;align-items:center;gap:8px;
+      background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(10px);
+      border-radius:50px;padding:7px 16px;font-size:0.78rem;color:var(--muted);pointer-events:none;
+    }
+    #sen-indicator.hidden { display:none; }
+
+    /* Results */
+    #screen-results { background:rgba(8,12,20,0.95); }
+    #res-title { font-size:2.3rem;font-weight:900;background:linear-gradient(135deg,#ff3355,var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text; }
+    .res-grid { display:grid;grid-template-columns:1fr 1fr;gap:13px;max-width:360px;width:100%; }
+    .res-box { background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:14px;padding:13px;text-align:center; }
+    .rl { font-size:0.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:2px; }
+    .rv { font-size:1.7rem;font-weight:700;margin-top:4px; }
+  </style>
+</head>
+<body>
+
+<audio id="bgm" src="https://upload.wikimedia.org/wikipedia/commons/c/c5/Disco_con_Tutti.ogg" loop></audio>
+
+<canvas id="starfield"></canvas>
+<div id="cursor-dot"></div>
+<div id="cursor-osu"></div>
+
+<!-- ═══════════════ START SCREEN ═══════════════ -->
+<div id="screen-start" class="screen">
+  <div class="logo">GazeChase</div>
+  <p class="tagline">ฝึกสายตากับรูปแบบ EyeTrainer, ตามจับเป้าหมายด้วยเมาส์ หรือคลิกให้ตรงจังหวะแบบ osu!</p>
+
+  <div class="card">
+    <!-- Mode Tabs -->
+    <div class="mode-tabs">
+      <button class="mtab active" id="tab-mouse" onclick="setMode('mouse')">
+        <span class="mtab-icon">&#128432;</span> Mouse
+      </button>
+      <button class="mtab" id="tab-watch" onclick="setMode('watch')">
+        <span class="mtab-icon">&#128065;</span> Watch
+      </button>
+      <button class="mtab" id="tab-osu" onclick="setMode('osu')">
+        <span class="mtab-icon">&#127918;</span> osu!
+      </button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Ball color picker (Mouse & Watch) -->
+    <div id="color-section" style="width:100%;">
+      <div class="sec-label" style="margin-bottom:8px;">&#127756; สีลูกบอล (Ball Color)</div>
+      <div class="color-row" id="color-row">
+        <div id="custom-color-wrap">
+          <label for="custom-color-input" id="custom-color-label" title="Custom color">+</label>
+          <input type="color" id="custom-color-input" value="#ff3355" oninput="setCustomColor(this.value)" />
+        </div>
+      </div>
+      <div class="divider" style="margin-top:14px;"></div>
+    </div>
+
+    <!-- MOUSE SETTINGS -->
+    <div id="mouse-settings" style="width:100%; display:flex; flex-direction:column; gap:14px;">
+      <div class="sen-row">
+        <div class="sen-header">
+          <span class="sec-label">&#127919; Mouse Sensitivity</span>
+          <input type="number" id="sen-input" class="styled-input" min="1" max="10" step="0.1" value="5.0" oninput="onSenInput(this)" style="width:70px; padding:4px 8px; border-radius:8px; border:1px solid var(--border); background:rgba(0,0,0,0.3); color:var(--gold); font-weight:bold; font-size:1rem; text-align:right;" />
+        </div>
+        <input type="range" id="sen-slider" min="1" max="10" step="0.1" value="5" oninput="onSenInput(this)" />
+        <div class="sen-marks"><span>Slow (1)</span><span>Medium</span><span>Fast (10)</span></div>
+      </div>
+    </div>
+
+    <!-- WATCH SETTINGS -->
+    <div id="watch-settings" style="width:100%; display:none; flex-direction:column; gap:14px;">
+      <div>
+        <div class="sec-label" style="margin-bottom:8px;">&#128221; รูปแบบการเคลื่อนที่ (Pattern)</div>
+        <select id="watch-pattern" class="styled-select" onchange="setPattern(this.value)">
+          <option value="random">สุ่มเด้ง (Random Bounce)</option>
+          <option value="circle">วงกลม (Circle)</option>
+          <option value="figure8">เลขแปด (Figure-8)</option>
+          <option value="horizontal">กวาดแนวนอน (Horizontal Sweep)</option>
+          <option value="zigzag">ซิกแซก (Zig-Zag)</option>
+          <option value="teleport">วาร์ป (Teleport)</option>
+        </select>
+      </div>
+      
+      <div class="sen-row">
+        <div class="sen-header">
+          <span class="sec-label">&#9917; จำนวนลูกบอล (Balls)</span>
+          <span class="sen-val" id="ball-count-display">1</span>
+        </div>
+        <input type="range" id="ball-count-slider" min="1" max="10" step="1" value="1" oninput="onBallCountInput(this)" />
+        <div class="sen-marks"><span>1</span><span>5</span><span>10</span></div>
+      </div>
+
+      <!-- Toggles for Watch Mode -->
+      <div class="toggle-row">
+        <div class="toggle-label" style="font-size:0.75rem;">&#10024; แสดงเงา (Trail)</div>
+        <div class="toggle-switch"><input type="checkbox" id="tog-trail" checked onchange="showTrail=this.checked" /><label for="tog-trail"></label></div>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-label" style="font-size:0.75rem;">&#128207; เส้นนำทาง (Path)</div>
+        <div class="toggle-switch"><input type="checkbox" id="tog-path" checked onchange="showPath=this.checked" /><label for="tog-path"></label></div>
+      </div>
+    </div>
+
+    <!-- OSU SETTINGS -->
+    <div id="osu-settings" style="width:100%; display:none; flex-direction:column; gap:14px;">
+      <div style="font-size:0.85rem;color:var(--muted);text-align:center;line-height:1.6;">
+        คลิกวงกลม (หรือกดแป้น <b>Z / X</b>) | หมุนเมาส์ที่ <b>Spinner</b><br>
+        <span style="color:#ff33c0;font-weight:700;">300</span> | <span style="color:#00e5a0;font-weight:700;">100</span> | <span style="color:#ffd060;font-weight:700;">50</span> | <span style="color:red;font-weight:700;">X</span> Miss
+      </div>
+      
+      <div class="divider"></div>
+      
+      <!-- Custom Song Upload -->
+      <div class="sen-row">
+        <div class="sen-header">
+          <span class="sec-label">&#127925; เพลงประกอบ (Custom MP3/OGG)</span>
+        </div>
+        <input type="file" id="osu-audio-upload" accept="audio/*" onchange="loadCustomAudio(this)" style="font-size:0.8rem; color:#fff; width:100%;" />
+        <div style="font-size:0.7rem; color:var(--green);" id="osu-audio-name">เพลงเริ่มต้น: Disco con Tutti</div>
+      </div>
+
+      <!-- BPM Input -->
+      <div class="sen-row">
+        <div class="sen-header">
+          <span class="sec-label">&#9201; จังหวะ (BPM)</span>
+          <input type="number" id="osu-bpm-input" min="30" max="300" step="1" value="120" oninput="onBpmInput(this)" style="width:70px; padding:4px 8px; border-radius:8px; border:1px solid var(--border); background:rgba(0,0,0,0.3); color:var(--blue); font-weight:bold; font-size:1rem; text-align:right;" />
+        </div>
+        <div style="font-size:0.65rem; color:var(--muted);">กำหนดความเร็วการเกิดของเป้าหมายให้ตรงกับจังหวะเพลง (BPM)</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <button class="btn btn-primary" id="btn-play" onclick="beginPlay()" style="width:100%;">
+      &#9654;&nbsp; <span id="btn-play-text">Play Mouse Mode</span>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════ COUNTDOWN ═══════════════ -->
+<div id="countdown-overlay" class="hidden">
+  <div id="countdown-num">3</div>
+</div>
+
+<!-- ═══════════════ GAME CANVAS ═══════════════ -->
+<canvas id="gameCanvas" class="hidden"></canvas>
+
+<!-- MOUSE HUD -->
+<div id="hud" class="hidden">
+  <div class="hb"><span class="hl">Score</span><span class="hv" id="h-score">0</span></div>
+  <div id="tpill" class="off"><div class="pdot"></div><span id="ttext">Move to ball!</span></div>
+  <div style="display:flex;gap:26px;text-align:right;">
+    <div class="hb"><span class="hl">Streak</span><span class="hv" id="h-streak">0.0s</span></div>
+    <div class="hb"><span class="hl">Time</span><span class="hv" id="h-time">0s</span></div>
+  </div>
+</div>
+
+<!-- WATCH HUD -->
+<div id="watch-hud" class="hidden">
+  <div class="hb"><span class="watch-label">&#128065; Eye Exercise</span><div id="watch-timer" style="color:var(--green)">0:00</div></div>
+  <div style="text-align:center;color:var(--muted);font-size:0.8rem;line-height:1.5;">โฟกัสตามลูกบอลด้วยสายตา<br><span id="watch-pattern-name" style="color:#fff;font-weight:700;"></span></div>
+  <div class="hb" style="text-align:right;"><span class="watch-label">เวลา</span><div id="watch-speed" style="font-size:1.3rem;font-weight:700;color:var(--blue)">&#9679;</div></div>
+</div>
+
+<!-- OSU HUD -->
+<div id="osu-hud" class="hidden">
+  <div class="hb"><span class="hl">Score</span><div id="osu-score">0</div></div>
+  <div style="text-align:center;">
+    <div id="osu-combo">0x</div><div id="osu-acc">100.00%</div>
+  </div>
+</div>
+
+<!-- QUICK BAR (Watch only) -->
+<div id="quick-bar" class="hidden">
+  <div id="qb-colors"></div>
+  <button class="qbtn active" id="qb-trail" onclick="toggleQTrail()"><div class="qbtn-dot" style="background:var(--green)"></div> Trail</button>
+  <button class="qbtn active" id="qb-path" onclick="toggleQPath()"><div class="qbtn-dot" style="background:var(--blue)"></div> Path</button>
+</div>
+
+<div id="sen-indicator" class="hidden">SEN: <b id="sen-live">5.0</b> <span style="opacity:0.4">|</span> <span style="font-size:0.7rem">Scroll &#8597;</span></div>
+
+<!-- GAME CONTROLS -->
+<div id="game-ctrl" class="hidden">
+  <button class="btn btn-ghost" style="pointer-events:all;font-size:0.78rem;padding:9px 18px;background:rgba(15,23,38,0.8);backdrop-filter:blur(10px);" onclick="endGame()">
+    &#127968; Home
+  </button>
+</div>
+
+<!-- ═══════════════ RESULTS ═══════════════ -->
+<div id="screen-results" class="screen hidden">
+  <div id="res-title">Game Over</div>
+  <div class="card" style="gap:20px;min-width:340px;">
+    <div class="res-grid" id="res-grid-mouse">
+      <div class="res-box"><div class="rl">Final Score</div><div class="rv" id="r-score" style="color:var(--gold)">0</div></div>
+      <div class="res-box"><div class="rl">Best Score</div><div class="rv" id="r-best"  style="color:var(--green)">0</div></div>
+      <div class="res-box"><div class="rl">Duration</div><div class="rv" id="r-time"  style="color:var(--blue)">0s</div></div>
+      <div class="res-box"><div class="rl">Max Streak</div><div class="rv" id="r-streak" style="color:var(--purple)">0s</div></div>
+    </div>
+    
+    <div class="res-grid" id="res-grid-osu" style="display:none;">
+      <div class="res-box"><div class="rl">Score</div><div class="rv" id="ro-score" style="color:var(--gold)">0</div></div>
+      <div class="res-box"><div class="rl">Max Combo</div><div class="rv" id="ro-combo"  style="color:#ff33c0">0x</div></div>
+      <div class="res-box"><div class="rl">Accuracy</div><div class="rv" id="ro-acc"  style="color:var(--green)">100%</div></div>
+      <div class="res-box"><div class="rl">300/100/50/X</div><div class="rv" id="ro-hits" style="color:var(--muted);font-size:1.1rem;">0/0/0/0</div></div>
+    </div>
+    
+    <div id="res-watch" style="display:none;text-align:center;">
+      <div style="font-size:3rem;font-weight:900;color:var(--green)" id="rw-time">0:00</div>
+      <div style="font-size:0.75rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">Eye Training Time</div>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:10px;">
+      <button class="btn btn-primary" id="btn-replay" onclick="playAgain()">&#9654;&nbsp;Play Again</button>
+      <button class="btn btn-ghost" onclick="goHome()">&#127968;&nbsp;Home</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════
+   HELPERS & SETUP
+══════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const lerp = (a,b,t) => a+(b-a)*t;
+const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
+const dist = (x1,y1,x2,y2) => Math.hypot(x2-x1,y2-y1);
+
+/* ── AUDIO SYSTEM ── */
+let audioCtx;
+let customAudioUrl = "https://upload.wikimedia.org/wikipedia/commons/c/c5/Disco_con_Tutti.ogg";
+
+function loadCustomAudio(input) {
+  let file = input.files[0];
+  if(file) {
+    if(customAudioUrl && customAudioUrl.startsWith('blob:')) URL.revokeObjectURL(customAudioUrl);
+    customAudioUrl = URL.createObjectURL(file);
+    $('osu-audio-name').textContent = "โหลดแล้ว: " + file.name;
+    $('bgm').src = customAudioUrl;
+  }
+}
+
+function initAudio() {
+  if(!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playHitSound(type) {
+  if(!audioCtx) return;
+  let o = audioCtx.createOscillator();
+  let g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  
+  if(type === 'miss') {
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(150, audioCtx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.3);
+    g.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    o.start(); o.stop(audioCtx.currentTime + 0.3);
+  } else {
+    o.type = 'sine';
+    let freq = type === 300 ? 800 : (type === 100 ? 600 : 400);
+    o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+    g.gain.setValueAtTime(0.6, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+    o.start(); o.stop(audioCtx.currentTime + 0.1);
+  }
+}
+
+function showScreen(id){
+  ['screen-start','screen-results'].forEach(s=>$(s).classList.toggle('hidden',s!==id));
+}
+
+// Background Stars
+(function(){
+  const c=$('starfield'),ctx=c.getContext('2d');let stars=[];
+  function resize(){
+    c.width=innerWidth;c.height=innerHeight;
+    stars=Array.from({length:150},()=>({x:Math.random()*c.width,y:Math.random()*c.height,r:Math.random()*1.2+0.2,s:Math.random()*0.15+0.05,o:Math.random()*0.5+0.1}));
+  }
+  window.addEventListener('resize',resize);resize();
+  (function draw(){
+    ctx.clearRect(0,0,c.width,c.height);
+    for(const s of stars){s.y+=s.s;if(s.y>c.height){s.y=0;s.x=Math.random()*c.width;}ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,220,255,${s.o})`;ctx.fill();}
+    requestAnimationFrame(draw);
+  })();
+})();
+
+/* ══════════════════════════════════════════════
+   COLOR SYSTEM
+══════════════════════════════════════════════ */
+const PRESETS = [
+  { id:'red', hex:'#ff3355', base:'#ff3355', hi:'#ff99aa', dark:'#8b0020', glow:'255,51,85' },
+  { id:'orange', hex:'#ff7a20', base:'#ff7a20', hi:'#ffbf80', dark:'#8b3500', glow:'255,122,32' },
+  { id:'yellow', hex:'#ffd060', base:'#ffd060', hi:'#fff0a0', dark:'#8b6600', glow:'255,208,96' },
+  { id:'green', hex:'#00e5a0', base:'#00e5a0', hi:'#80ffda', dark:'#006644', glow:'0,229,160' },
+  { id:'blue', hex:'#4f8fff', base:'#4f8fff', hi:'#a0c4ff', dark:'#1a3a8b', glow:'79,143,255' },
+  { id:'purple', hex:'#a040ff', base:'#a040ff', hi:'#d4a0ff', dark:'#4a008b', glow:'160,64,255' },
+  { id:'pink', hex:'#ff40c0', base:'#ff40c0', hi:'#ffaaee', dark:'#8b0060', glow:'255,64,192' },
+  { id:'white', hex:'#c8d8ff', base:'#c8d8ff', hi:'#ffffff', dark:'#4060a0', glow:'200,216,255' }
+];
+let ballColor = PRESETS[0];
+let customColorHex = '#ff3355';
+
+function buildSwatches(){
+  const row=$('color-row');
+  [...row.querySelectorAll('.color-swatch')].forEach(e=>e.remove());
+  PRESETS.forEach(p=>{
+    const s=document.createElement('div');
+    s.className='color-swatch'+(p.id===ballColor.id?' sel':'');
+    s.style.background=p.hex; s.title=p.id;
+    s.onclick=()=>{ ballColor=p; $('custom-color-label').classList.remove('sel'); buildSwatches(); buildQbSwatches(); };
+    row.insertBefore(s,row.querySelector('#custom-color-wrap'));
+  });
+}
+function setCustomColor(hex){
+  customColorHex=hex;
+  const hexToRgb = h => `${parseInt(h.slice(1,3),16)},${parseInt(h.slice(3,5),16)},${parseInt(h.slice(5,7),16)}`;
+  ballColor={id:'custom',hex,base:hex,hi:hex,dark:'#222',glow:hexToRgb(hex)};
+  document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('sel'));
+  $('custom-color-label').classList.add('sel'); buildQbSwatches();
+}
+function buildQbSwatches(){
+  const row=$('qb-colors');row.innerHTML='';
+  PRESETS.forEach(p=>{
+    const s=document.createElement('div');
+    s.className='qswatch'+(p.id===ballColor.id?' sel':'');
+    s.style.background=p.hex; s.onclick=()=>{ ballColor=p; buildQbSwatches(); buildSwatches(); };
+    row.appendChild(s);
+  });
+}
+buildSwatches();
+
+/* ══════════════════════════════════════════════
+   SETTINGS & STATE
+══════════════════════════════════════════════ */
+let gameMode = 'mouse'; // 'mouse', 'watch', 'osu'
+let watchPattern = 'random';
+let ballCount = 1;
+let showTrail = true;
+let showPath = true;
+let sen = 5.0;
+let osuBpm = 120;
+
+function setMode(m){
+  gameMode = m;
+  $('tab-mouse').classList.toggle('active', m==='mouse');
+  $('tab-watch').classList.toggle('active', m==='watch');
+  $('tab-osu').classList.toggle('active', m==='osu');
+  
+  $('mouse-settings').style.display = m==='mouse' ? 'flex' : 'none';
+  $('watch-settings').style.display = m==='watch' ? 'flex' : 'none';
+  $('osu-settings').style.display = m==='osu' ? 'flex' : 'none';
+  
+  $('color-section').style.display = m==='osu' ? 'none' : 'block';
+
+  let btn = $('btn-play');
+  btn.className = 'btn ' + (m==='mouse'?'btn-primary':m==='osu'?'btn-osu':'btn-watch');
+  $('btn-play-text').textContent = m==='mouse'?'Play Mouse Mode':m==='osu'?'Play osu! Mode':'Start Eye Training';
+}
+
+function setPattern(val) { watchPattern = val; }
+function onBallCountInput(el){
+  ballCount = parseInt(el.value, 10);
+  $('ball-count-display').textContent = ballCount;
+  el.style.setProperty('--pct', ((ballCount-1)/9)*100+'%');
+}
+function onSenInput(el){
+  let val = parseFloat(el.value);
+  if(isNaN(val)) return;
+  sen = clamp(val, 1, 10);
+  
+  if (el.id === 'sen-slider') {
+    $('sen-input').value = sen.toFixed(1);
+  } else {
+    $('sen-slider').value = sen;
+  }
+  
+  if($('sen-live')) $('sen-live').textContent = sen.toFixed(1);
+  $('sen-slider').style.setProperty('--pct', ((sen-1)/9)*100+'%');
+}
+function onBpmInput(el) {
+  let val = parseInt(el.value);
+  if(isNaN(val) || val <= 0) return;
+  osuBpm = val;
+}
+onBallCountInput($('ball-count-slider'));
+onSenInput($('sen-slider'));
+
+function toggleQTrail(){ showTrail=!showTrail; $('tog-trail').checked=showTrail; $('qb-trail').classList.toggle('active',showTrail); }
+function toggleQPath(){ showPath=!showPath; $('tog-path').checked=showPath; $('qb-path').classList.toggle('active',showPath); }
+
+/* ══════════════════════════════════════════════
+   INPUT HANDLING
+══════════════════════════════════════════════ */
+let rawX=innerWidth/2, rawY=innerHeight/2;
+let curX=innerWidth/2, curY=innerHeight/2;
+let osuKeysHeld = false;
+
+document.addEventListener('mousemove', e=>{ rawX=e.clientX; rawY=e.clientY; });
+document.addEventListener('mousedown', e=>{ if(gameMode==='osu') osuKeysHeld=true; });
+document.addEventListener('mouseup', e=>{ if(gameMode==='osu') osuKeysHeld=false; });
+
+window.addEventListener('wheel', e=>{
+  if(!game || !game.active || gameMode!=='mouse') return;
+  e.preventDefault();
+  sen = clamp(parseFloat((sen+(e.deltaY>0?-0.5:0.5)).toFixed(1)),1,10);
+  $('sen-slider').value = sen; onSenInput($('sen-slider'));
+},{passive:false});
+
+function handleOsuClick(cx, cy) {
+  for(let i = game.osuObjects.length-1; i>=0; i--){
+    let o = game.osuObjects[i];
+    if(o.state !== 'active' || o.type !== 'circle') continue;
+    if(dist(cx, cy, o.x, o.y) <= OSU_RADIUS * 1.2) {
+      let timeLived = game.elapsed - o.spawnTime;
+      let diff = Math.abs(timeLived - o.approachTime);
+      
+      if(diff < 0.10) { hitObject(o, 300); }
+      else if(diff < 0.22) { hitObject(o, 100); }
+      else if(diff < 0.35) { hitObject(o, 50); }
+      else { hitObject(o, 0); }
+      return; 
+    }
+  }
+}
+
+// osu! click handling (Mouse)
+document.addEventListener('mousedown', e => {
+  if(!game || !game.active || gameMode !== 'osu') return;
+  spawnOsuRipple(e.clientX, e.clientY);
+  handleOsuClick(e.clientX, e.clientY);
+});
+
+// osu! click handling (Keyboard Z/X)
+document.addEventListener('keydown', e => {
+  if(!game || !game.active || gameMode !== 'osu') return;
+  if(e.code === 'KeyZ' || e.code === 'KeyX') {
+    osuKeysHeld = true;
+    if(!e.repeat) {
+      spawnOsuRipple(curX, curY);
+      handleOsuClick(curX, curY);
+    }
+  }
+});
+document.addEventListener('keyup', e => {
+  if(e.code === 'KeyZ' || e.code === 'KeyX') {
+    osuKeysHeld = false;
+  }
+});
+
+/* ══════════════════════════════════════════════
+   GAME ENGINE
+══════════════════════════════════════════════ */
+const gc=$('gameCanvas'), ctx=gc.getContext('2d');
+let game=null, rafId=null;
+function resizeCanvas(){ gc.width=innerWidth; gc.height=innerHeight; }
+window.addEventListener('resize',resizeCanvas); resizeCanvas();
+
+const BALL_R=32, HIT_BUF=50, TRAIL_N=22;
+const OSU_RADIUS = 55; // Increased size
+
+function beginPlay(){ 
+  $('screen-start').classList.add('hidden'); 
+  if(gameMode === 'osu') {
+    initAudio();
+    let bgm = $('bgm');
+    bgm.volume = 0.2;
+    bgm.currentTime = 0;
+    bgm.play().catch(e=>console.log("Audio autoplay blocked"));
+  }
+  startCountdown(); 
+}
+function startCountdown(){
+  const ov=$('countdown-overlay'), ne=$('countdown-num');
+  ov.classList.remove('hidden');
+  let n=3;
+  function tick(){
+    ne.style.animation='none';void ne.offsetWidth;ne.style.animation='';
+    if(n===0){ ne.textContent='GO!'; ne.style.color='#00e5a0'; setTimeout(()=>{ov.classList.add('hidden');startGame();},600); }
+    else { ne.textContent=n; ne.style.color='#fff'; n--; setTimeout(tick,800); }
+  }
+  tick();
+}
+
+function startGame(){
+  buildQbSwatches();
+  curX=innerWidth/2; curY=innerHeight/2;
+  gc.classList.remove('hidden');
+  $('game-ctrl').classList.remove('hidden');
+  $('hud').classList.add('hidden'); $('watch-hud').classList.add('hidden'); $('osu-hud').classList.add('hidden');
+  $('quick-bar').classList.add('hidden'); $('sen-indicator').classList.add('hidden');
+  $('cursor-dot').style.display = 'none'; $('cursor-osu').style.display = 'none'; document.body.style.cursor='';
+
+  game = {
+    active: true, elapsed: 0, lastTime: null,
+    score: 0, combo: 0, bestStreak: 0, mult: 1, hp: 100,
+    balls: [], osuObjects: [], osuStats: { n300:0, n100:0, n50:0, nMiss:0, total:0 },
+    nextSpawn: 1.0, osuSpawnCount: 0, cursorTrail: [],
+    lastOsuX: gc.width/2, lastOsuY: gc.height/2
+  };
+
+  if(gameMode === 'mouse'){
+    $('hud').classList.remove('hidden'); $('sen-indicator').classList.remove('hidden');
+    $('cursor-dot').style.display='block'; document.body.style.cursor='none';
+    let b = createBall(0); pickTarget(b); game.balls.push(b);
+  } 
+  else if(gameMode === 'watch'){
+    $('watch-hud').classList.remove('hidden'); $('quick-bar').classList.remove('hidden');
+    let names = {random:'สุ่มเด้ง', circle:'วงกลม', figure8:'เลขแปด', horizontal:'แนวนอน', zigzag:'ซิกแซก', teleport:'วาร์ป'};
+    $('watch-pattern-name').textContent = names[watchPattern];
+    for(let i=0; i<ballCount; i++){ let b=createBall(i); pickTarget(b); game.balls.push(b); }
+  }
+  else if(gameMode === 'osu'){
+    $('osu-hud').classList.remove('hidden');
+    $('cursor-osu').style.display='block'; document.body.style.cursor='none';
+    updateOsuHud();
+  }
+
+  cancelAnimationFrame(rafId);
+  rafId=requestAnimationFrame(loop);
+}
+
+/* ── BALL LOGIC (Mouse/Watch) ── */
+function createBall(id){ return {id, x:gc.width/2, y:gc.height/2, vx:0, vy:0, spd:200, tx:0, ty:0, nt:0, trail:[], ltx:0, lty:0, r:BALL_R}; }
+function pickTarget(b){
+  const mg=120;
+  b.tx = clamp(gc.width/2 + (Math.random()-0.5)*gc.width*0.8, mg, gc.width-mg);
+  b.ty = clamp(gc.height/2 + (Math.random()-0.5)*gc.height*0.8, mg, gc.height-mg);
+  b.nt = watchPattern==='teleport' ? (0.8 + Math.random()*1.5) : (1.5 + Math.random()*3.0);
+  b.maxNt = b.nt;
+}
+
+function updateBall(b, dt, idx, total){
+  if(gameMode === 'watch' && watchPattern !== 'random' && watchPattern !== 'teleport'){
+    let t = game.elapsed;
+    let offset = (idx/total) * Math.PI * 2;
+    let w = gc.width/2, h = gc.height/2;
+    
+    if(watchPattern === 'circle'){
+      let r = Math.min(w,h) * 0.7;
+      b.x = w + Math.cos(t*1.5 + offset) * r;
+      b.y = h + Math.sin(t*1.5 + offset) * r;
+    } else if(watchPattern === 'figure8'){
+      let rw = w * 0.8, rh = h * 0.6;
+      b.x = w + Math.sin(t*1.2 + offset) * rw;
+      b.y = h + Math.sin((t*1.2 + offset)*2) * rh;
+    } else if(watchPattern === 'horizontal'){
+      let rw = w * 0.8;
+      b.x = w + Math.sin(t*1.8 + offset) * rw;
+      b.y = h + (idx - total/2)*40; 
+    } else if(watchPattern === 'zigzag'){
+      let rw = w * 0.8, rh = h * 0.6;
+      b.x = w + Math.sin(t*1.2 + offset) * rw;
+      b.y = h + Math.asin(Math.sin((t*1.2 + offset)*3)) / (Math.PI/2) * rh; 
+    }
+  } else {
+    b.nt -= dt;
+    if(watchPattern === 'teleport'){
+      if(b.nt <= 0){ b.x=b.tx; b.y=b.ty; pickTarget(b); b.trail=[]; }
+    } else {
+      if(b.nt<=0) pickTarget(b);
+      const dx=b.tx-b.x, dy=b.ty-b.y, l=Math.hypot(dx,dy)||1;
+      b.vx=lerp(b.vx, (dx/l)*b.spd, 0.032); b.vy=lerp(b.vy, (dy/l)*b.spd, 0.032);
+      const vl=Math.hypot(b.vx,b.vy)||1; b.vx=(b.vx/vl)*b.spd; b.vy=(b.vy/vl)*b.spd;
+      b.x+=b.vx*dt; b.y+=b.vy*dt;
+      const m=BALL_R+10;
+      if(b.x<m){b.x=m;b.vx*=-1;pickTarget(b);} if(b.x>gc.width-m){b.x=gc.width-m;b.vx*=-1;pickTarget(b);}
+      if(b.y<m){b.y=m;b.vy*=-1;pickTarget(b);} if(b.y>gc.height-m){b.y=gc.height-m;b.vy*=-1;pickTarget(b);}
+    }
+  }
+  if(showTrail && watchPattern !== 'teleport'){
+    if(dist(b.x,b.y,b.ltx,b.lty)>5){ b.trail.push({x:b.x,y:b.y}); if(b.trail.length>TRAIL_N)b.trail.shift(); b.ltx=b.x; b.lty=b.y; }
+  }
+}
+
+function drawBall(b, isHit){
+  const col = ballColor;
+  if(showPath){
+    ctx.save();
+    ctx.strokeStyle = '#ffffff'; 
+    ctx.lineWidth = 3;
+    
+    if(watchPattern === 'teleport'){
+      ctx.setLineDash([8, 16]); ctx.lineDashOffset = -game.elapsed*40;
+      ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.tx,b.ty); ctx.stroke();
+      
+      let rat = Math.max(0, b.nt/b.maxNt);
+      ctx.setLineDash([]); ctx.beginPath(); ctx.arc(b.tx,b.ty,18, -Math.PI/2, -Math.PI/2 + rat*Math.PI*2);
+      ctx.lineWidth=4; ctx.stroke();
+      ctx.beginPath(); ctx.arc(b.tx,b.ty,6,0,Math.PI*2); ctx.fillStyle='#ffffff'; ctx.fill();
+    } else if(watchPattern === 'random' || gameMode === 'mouse'){
+      ctx.setLineDash([12, 18]); ctx.lineDashOffset = -game.elapsed*120;
+      ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.tx,b.ty); ctx.stroke();
+      ctx.setLineDash([]); ctx.beginPath(); ctx.arc(b.tx,b.ty,8,0,Math.PI*2); ctx.fillStyle='#ffffff'; ctx.fill();
+    } else if (b.id === 0) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; 
+      ctx.lineWidth = 4;
+      let w = gc.width/2, h = gc.height/2;
+      ctx.beginPath();
+      if(watchPattern === 'circle'){
+        let r = Math.min(w,h) * 0.7;
+        ctx.arc(w, h, r, 0, Math.PI*2);
+      } else if(watchPattern === 'figure8'){
+        let rw = w * 0.8, rh = h * 0.6;
+        for(let i=0; i<=Math.PI*2+0.1; i+=0.1){
+           let px = w + Math.sin(i) * rw, py = h + Math.sin(i*2) * rh;
+           if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+        }
+      } else if(watchPattern === 'horizontal'){
+        let rw = w * 0.8;
+        ctx.moveTo(w - rw, h); ctx.lineTo(w + rw, h);
+      } else if(watchPattern === 'zigzag'){
+        let rw = w * 0.8, rh = h * 0.6;
+        for(let i=0; i<=Math.PI*2+0.1; i+=0.1){
+           let px = w + Math.sin(i) * rw, py = h + Math.asin(Math.sin(i*3)) / (Math.PI/2) * rh;
+           if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+        }
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  if(showTrail && watchPattern !== 'teleport'){
+    b.trail.forEach((p,i)=>{
+      const t=i/b.trail.length;
+      ctx.beginPath(); ctx.arc(p.x,p.y,BALL_R*(0.2+0.7*t),0,Math.PI*2);
+      ctx.fillStyle=`rgba(${col.glow},${t*0.2})`; ctx.fill();
+    });
+  }
+
+  const gl = ctx.createRadialGradient(b.x,b.y,BALL_R*0.2,b.x,b.y,BALL_R*2.5);
+  gl.addColorStop(0, isHit?'rgba(0,229,160,0.4)':`rgba(${col.glow},0.4)`); gl.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath(); ctx.arc(b.x,b.y,BALL_R*2.5,0,Math.PI*2); ctx.fillStyle=gl; ctx.fill();
+
+  const bg=ctx.createRadialGradient(b.x-BALL_R*0.3,b.y-BALL_R*0.3,BALL_R*0.1,b.x,b.y,BALL_R);
+  bg.addColorStop(0,col.hi); bg.addColorStop(0.4,col.base); bg.addColorStop(1,col.dark);
+  ctx.beginPath(); ctx.arc(b.x,b.y,BALL_R,0,Math.PI*2); ctx.fillStyle=bg; ctx.fill();
+  ctx.beginPath(); ctx.arc(b.x-BALL_R*0.3,b.y-BALL_R*0.3,BALL_R*0.2,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.fill();
+
+  if(isHit){
+    ctx.beginPath(); ctx.arc(b.x,b.y,BALL_R+8,0,Math.PI*2);
+    ctx.strokeStyle='rgba(0,229,160,0.9)'; ctx.lineWidth=3; ctx.stroke();
+  }
+}
+
+/* ── OSU LOGIC ── */
+const osuColors = ['#ff33c0', '#00e5a0', '#4f8fff', '#ffd060'];
+function spawnOsuObject(){
+  const mg = 100; // margin
+  let beatsApproach = 2.0; // Wait 2 beats
+  let baseApproach = (60 / osuBpm) * beatsApproach; 
+  
+  game.osuSpawnCount++;
+  
+  let comboSet = Math.floor((game.osuSpawnCount - 1) / 4) % osuColors.length;
+  let numInSet = ((game.osuSpawnCount - 1) % 4) + 1;
+  
+  // 12% chance for a Spinner after the first few circles
+  let isSpinner = (Math.random() < 0.12 && game.osuSpawnCount > 4);
+  
+  let tx, ty;
+  if(isSpinner) {
+    tx = gc.width/2; ty = gc.height/2;
+    game.lastOsuX = tx; game.lastOsuY = ty;
+  } else {
+    if(game.osuSpawnCount === 1) {
+       tx = gc.width/2; ty = gc.height/2;
+    } else {
+       // Distance Snap based on BPM interval, but never overlap a circle that's still on screen
+       const minGap = OSU_RADIUS * 2 + 30; // minimum center-to-center distance = no overlap
+       let attempts = 0;
+       do {
+         let angle = Math.random() * Math.PI * 2;
+         let jumpDist = Math.random() * 200 + minGap;
+         tx = clamp(game.lastOsuX + Math.cos(angle) * jumpDist, mg, gc.width - mg);
+         ty = clamp(game.lastOsuY + Math.sin(angle) * jumpDist, mg, gc.height - mg);
+         attempts++;
+       } while(
+         attempts < 10 &&
+         game.osuObjects.some(o => o.type === 'circle' && o.state === 'active' && dist(tx, ty, o.x, o.y) < minGap)
+       );
+    }
+    game.lastOsuX = tx; game.lastOsuY = ty;
+  }
+  
+  if(isSpinner) {
+    // Clear out any leftover active circles first so they don't overlap the spinner
+    game.osuObjects.forEach(o => {
+      if(o.type === 'circle' && o.state === 'active') hitObject(o, 0);
+    });
+
+    game.osuObjects.push({
+      type: 'spinner', x: tx, y: ty, spawnTime: game.elapsed,
+      approachTime: (60 / osuBpm) * 4, // 4 beats to spin
+      state: 'active', score: 0,
+      spinAngle: 0, lastAngle: 0, totalSpin: 0,
+      reqSpin: Math.PI * 2 * 5 // 5 full rotations required
+    });
+    // Pause spawning during spinner
+    game.nextSpawn = game.elapsed + ((60 / osuBpm) * 4.5);
+  } else {
+    game.osuObjects.push({
+      type: 'circle', x: tx, y: ty, spawnTime: game.elapsed,
+      approachTime: baseApproach, state: 'active', score: 0,
+      number: numInSet, color: osuColors[comboSet]
+    });
+  }
+
+  return isSpinner;
+}
+
+function hitObject(o, pts){
+  o.state = pts>0 ? 'hit' : 'miss';
+  o.score = pts;
+  o.hitTime = game.elapsed;
+  game.osuStats.total++;
+  
+  if(pts===300){ 
+    game.osuStats.n300++; game.combo++; game.score+=300*game.combo; 
+    game.hp = clamp(game.hp + 5, 0, 100);
+    spawnBurst(o.x,o.y,'300', '#ff33c0'); playHitSound(300);
+  }
+  else if(pts===100){ 
+    game.osuStats.n100++; game.combo++; game.score+=100*game.combo; 
+    game.hp = clamp(game.hp + 2, 0, 100);
+    spawnBurst(o.x,o.y,'100', '#00e5a0'); playHitSound(100);
+  }
+  else if(pts===50){ 
+    game.osuStats.n50++; game.combo++; game.score+=50*game.combo; 
+    game.hp = clamp(game.hp + 0.5, 0, 100);
+    spawnBurst(o.x,o.y,'50', '#ffd060'); playHitSound(50);
+  }
+  else { 
+    game.osuStats.nMiss++; game.combo=0; 
+    game.hp = clamp(game.hp - 15, 0, 100);
+    spawnBurst(o.x,o.y,'X', 'red'); playHitSound('miss');
+  }
+  
+  if(game.combo > game.bestStreak) game.bestStreak = game.combo;
+  updateOsuHud();
+}
+function updateOsuHud(){
+  $('osu-score').textContent = Math.floor(game.score).toLocaleString();
+  $('osu-combo').textContent = game.combo + 'x';
+  if(game.osuStats.total > 0){
+    let s = game.osuStats;
+    let maxScore = s.total * 300;
+    let actualScore = (s.n300*300) + (s.n100*100) + (s.n50*50);
+    $('osu-acc').textContent = ((actualScore / maxScore)*100).toFixed(2) + '%';
+  }
+}
+
+function spawnBurst(x, y, text, color){
+  const e = document.createElement('div');
+  e.className = 'burst';
+  e.textContent = text;
+  e.style.left = x + 'px';
+  e.style.top = y + 'px';
+  e.style.color = color || '#fff';
+  document.body.appendChild(e);
+  e.addEventListener('animationend', () => e.remove());
+}
+
+function spawnOsuRipple(x,y){
+  const e=document.createElement('div');
+  e.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:40px;height:40px;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%);pointer-events:none;z-index:40;animation:rp 0.4s ease-out forwards;`;
+  document.body.appendChild(e); e.addEventListener('animationend',()=>e.remove());
+}
+const style = document.createElement('style');
+style.innerHTML = `@keyframes rp { 0%{width:0;height:0;opacity:1} 100%{width:80px;height:80px;opacity:0} } 
+.burst { position:fixed; z-index:35; font-size:2.2rem; font-weight:900; transform:translate(-50%,-50%); pointer-events:none; animation:burst 0.5s cubic-bezier(0.1, 1.5, 0.5, 1) forwards; text-shadow:0 0 14px currentColor; }
+@keyframes burst { 0%{opacity:0; transform:translate(-50%,-50%) scale(0.5);} 30%{opacity:1; transform:translate(-50%,-50%) scale(1.2);} 100%{opacity:0; transform:translate(-50%,-50%) scale(0.8);} }`;
+document.head.appendChild(style);
+
+/* ── MAIN LOOP ── */
+function loop(ts){
+  if(!game||!game.active)return;
+  if(game.lastTime===null)game.lastTime=ts;
+  const dt=Math.min((ts-game.lastTime)/1000, 0.05);
+  game.lastTime=ts; game.elapsed+=dt;
+
+  ctx.fillStyle='#080c14'; ctx.fillRect(0,0,gc.width,gc.height);
+  
+  ctx.strokeStyle='rgba(79,143,255,0.035)'; ctx.lineWidth=1;
+  for(let x=0;x<gc.width;x+=62){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,gc.height);ctx.stroke();}
+  for(let y=0;y<gc.height;y+=62){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(gc.width,y);ctx.stroke();}
+
+  if(gameMode === 'mouse' || gameMode === 'watch'){
+    let hitAny = false;
+    if(gameMode==='mouse'){
+      curX=lerp(curX,rawX, senToLerp(sen)); curY=lerp(curY,rawY, senToLerp(sen));
+      const cd=$('cursor-dot'); cd.style.left=curX+'px'; cd.style.top=curY+'px';
+    }
+
+    game.balls.forEach((b, i) => {
+      b.spd = 200 + game.elapsed*6;
+      updateBall(b, dt, i, game.balls.length);
+      let isHit = false;
+      if(gameMode==='mouse'){ isHit = dist(curX,curY,b.x,b.y)<=(BALL_R+HIT_BUF); if(isHit) hitAny=true; }
+      drawBall(b, isHit);
+    });
+
+    if(gameMode === 'mouse'){
+      if(hitAny){
+        game.streak+=dt; if(game.streak>game.bestStreak)game.bestStreak=game.streak;
+        let nm = game.streak>15?3 : game.streak>5?2 : 1;
+        if(nm>game.mult){ game.mult=nm; spawnBurst(game.balls[0].x, game.balls[0].y-60, 'x'+nm+'!'); }
+        game.score += 10 * game.mult * dt;
+      } else { game.streak=0; game.mult=1; }
+      
+      $('h-score').textContent = Math.floor(game.score).toLocaleString();
+      $('h-streak').textContent = game.streak.toFixed(1)+'s';
+      $('h-time').textContent = Math.floor(game.elapsed)+'s';
+      const p=$('tpill');
+      if(hitAny){ p.className='on'; $('ttext').textContent=game.mult>1?'Tracking x'+game.mult:'Tracking!'; }
+      else { p.className='off'; $('ttext').textContent='Move to ball!'; }
+    } else {
+      $('watch-timer').textContent = fmtTime(game.elapsed);
+    }
+  } 
+  else if(gameMode === 'osu'){
+    curX=lerp(curX,rawX, 0.5); curY=lerp(curY,rawY, 0.5);
+    const cd=$('cursor-osu'); cd.style.left=curX+'px'; cd.style.top=curY+'px';
+    
+    // Trail
+    game.cursorTrail.push({x:curX, y:curY, time:game.elapsed});
+    game.cursorTrail = game.cursorTrail.filter(t => game.elapsed - t.time < 0.3);
+
+    // HP Drain
+    game.hp -= 3.0 * dt;
+    if(game.hp <= 0 && game.active) {
+      game.hp = 0; endGame(true);
+    }
+
+    // Spawn logic based on BPM (1 beat interval = 60/BPM)
+    if(game.elapsed > game.nextSpawn){
+      let spawnedSpinner = spawnOsuObject();
+      if(!spawnedSpinner){
+        let beatsInterval = 1.0; // 1 note per beat usually
+        if(osuBpm < 100) beatsInterval = 0.5; // Double time for slow songs
+        game.nextSpawn = game.elapsed + (60 / osuBpm) * beatsInterval;
+      }
+      // if a spinner was spawned, spawnOsuObject() already set game.nextSpawn
+      // to pause spawning until the spin finishes — don't override it here.
+    }
+    
+    // Draw Cursor Trail
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for(let i=1; i<game.cursorTrail.length; i++){
+      let p1 = game.cursorTrail[i-1], p2 = game.cursorTrail[i];
+      let age = game.elapsed - p2.time;
+      let alpha = Math.max(0, 1.0 - (age / 0.3));
+      ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+      ctx.strokeStyle = `rgba(255, 51, 192, ${alpha * 0.6})`;
+      ctx.lineWidth = 18 * alpha;
+      ctx.stroke();
+    }
+    ctx.restore();
+    
+    // Draw Follow Lines
+    ctx.save();
+    ctx.lineWidth = 4;
+    for(let i=0; i<game.osuObjects.length-1; i++) {
+       let o1 = game.osuObjects[i];
+       let o2 = game.osuObjects[i+1];
+       if(o1.type === 'circle' && o2.type === 'circle' && o2.number > 1 && o1.state === 'active' && o2.state === 'active') {
+           let tLived1 = game.elapsed - o1.spawnTime;
+           if(tLived1 > o1.approachTime * 0.4) {
+               let alpha = Math.min(1.0, (tLived1 - o1.approachTime*0.4) / (o1.approachTime*0.4));
+               ctx.strokeStyle = `rgba(255,255,255, ${alpha * 0.4})`;
+               ctx.beginPath(); ctx.moveTo(o1.x, o1.y); ctx.lineTo(o2.x, o2.y); ctx.stroke();
+           }
+       }
+    }
+    ctx.restore();
+
+    // Process & Draw osu objects
+    for(let i=0; i<game.osuObjects.length; i++){
+      let o = game.osuObjects[i];
+      let tLived = game.elapsed - o.spawnTime;
+      
+      if(o.type === 'circle') {
+        if(o.state === 'active' && tLived > o.approachTime + 0.3) {
+          hitObject(o, 0); // Missed
+        }
+
+        ctx.save();
+        if(o.state === 'active'){
+          ctx.beginPath(); ctx.arc(o.x, o.y, OSU_RADIUS, 0, Math.PI*2);
+          ctx.fillStyle = o.color; ctx.fill();
+          ctx.strokeStyle = '#fff'; ctx.lineWidth=4; ctx.stroke();
+          
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 44px Outfit, sans-serif'; // Bigger font
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(o.number, o.x, o.y + 4);
+          
+          let prog = tLived / o.approachTime;
+          let ringR = OSU_RADIUS + (1.0 - Math.min(1.0, prog)) * 120;
+          ctx.beginPath(); ctx.arc(o.x, o.y, ringR, 0, Math.PI*2);
+          ctx.strokeStyle = o.color; ctx.lineWidth = 5; ctx.stroke();
+        } else {
+          let age = game.elapsed - o.hitTime;
+          if(age < 0.4){
+            ctx.globalAlpha = 1.0 - (age/0.4);
+            let exR = o.score === 0 ? 0 : age*60;
+            ctx.beginPath(); ctx.arc(o.x, o.y, OSU_RADIUS + exR, 0, Math.PI*2);
+            ctx.strokeStyle = o.score === 0 ? 'red' : o.color; 
+            ctx.lineWidth= o.score === 0 ? 6 : 3; 
+            ctx.stroke();
+          } else {
+            game.osuObjects.splice(i, 1); i--;
+          }
+        }
+        ctx.restore();
+      } 
+      else if(o.type === 'spinner') {
+         if(o.state === 'active') {
+           if(osuKeysHeld) {
+              let a = Math.atan2(curY - o.y, curX - o.x);
+              if(o.lastAngle !== 0) {
+                 let diff = a - o.lastAngle;
+                 while(diff > Math.PI) diff -= Math.PI*2;
+                 while(diff < -Math.PI) diff += Math.PI*2;
+                 o.totalSpin += Math.abs(diff);
+                 o.spinAngle += diff;
+                 if(Math.abs(diff) > 0.05) {
+                    game.score += 20; 
+                    if(Math.random()<0.2) playHitSound(100);
+                 }
+              }
+              o.lastAngle = a;
+           } else {
+              o.lastAngle = 0;
+           }
+           
+           if(tLived > o.approachTime) {
+              if(o.totalSpin >= o.reqSpin) { hitObject(o, 300); }
+              else if(o.totalSpin >= o.reqSpin * 0.5) { hitObject(o, 100); }
+              else { hitObject(o, 0); }
+           }
+         }
+         
+         ctx.save();
+         if(o.state === 'active') {
+            let r = Math.min(gc.width, gc.height)*0.35;
+            ctx.beginPath(); ctx.arc(o.x, o.y, r, 0, Math.PI*2);
+            ctx.strokeStyle = `rgba(79,143,255,0.4)`; ctx.lineWidth=10; ctx.stroke();
+            
+            ctx.translate(o.x, o.y);
+            ctx.rotate(o.spinAngle);
+            ctx.beginPath(); ctx.arc(0,0, r*0.8, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(79,143,255,0.15)`; ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(-r*0.8, -4, r*1.6, 8);
+            ctx.fillRect(-4, -r*0.8, 8, r*1.6);
+            ctx.rotate(-o.spinAngle);
+            ctx.translate(-o.x, -o.y);
+            
+            let prog = Math.min(1.0, o.totalSpin / o.reqSpin);
+            ctx.beginPath(); ctx.arc(o.x, o.y, r*prog, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(0,229,160,0.6)`; ctx.fill();
+            
+            let timeProg = tLived / o.approachTime;
+            let ringR = r + (1.0 - timeProg) * 100;
+            ctx.beginPath(); ctx.arc(o.x, o.y, ringR, 0, Math.PI*2);
+            ctx.strokeStyle = '#ff33c0'; ctx.lineWidth=4; ctx.stroke();
+            
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 36px Outfit'; ctx.textAlign='center';
+            ctx.fillText("SPIN!", o.x, o.y - r - 25);
+         } else {
+            let age = game.elapsed - o.hitTime;
+            if(age > 0.4) { game.osuObjects.splice(i, 1); i--; }
+         }
+         ctx.restore();
+      }
+    }
+    
+    // Draw HP Bar
+    let hpW = gc.width * 0.4;
+    let hpH = 12;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(gc.width/2 - hpW/2, 20, hpW, hpH);
+    ctx.fillStyle = `hsl(${game.hp * 1.2}, 100%, 50%)`;
+    ctx.fillRect(gc.width/2 - hpW/2, 20, hpW * (game.hp/100), hpH);
+  }
+
+  const g=ctx.createRadialGradient(gc.width/2,gc.height/2,gc.height*0.3,gc.width/2,gc.height/2,gc.height*0.9);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(5,8,18,0.7)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,gc.width,gc.height);
+
+  rafId=requestAnimationFrame(loop);
+}
+
+function fmtTime(s){ const m=Math.floor(s/60),sec=Math.floor(s%60);return m+':'+(sec<10?'0':'')+sec; }
+function senToLerp(s){ return 0.06+(s-1)/9*0.94; }
+
+/* ── END GAME ── */
+function endGame(failed = false){
+  if(!game||!game.active)return;
+  game.active=false; cancelAnimationFrame(rafId);
+  
+  $('bgm').pause();
+  
+  gc.classList.add('hidden');
+  $('hud').classList.add('hidden'); $('watch-hud').classList.add('hidden'); $('osu-hud').classList.add('hidden');
+  $('game-ctrl').classList.add('hidden'); $('quick-bar').classList.add('hidden'); $('sen-indicator').classList.add('hidden');
+  $('cursor-dot').style.display='none'; $('cursor-osu').style.display='none';
+  document.body.style.cursor='';
+
+  $('res-grid-mouse').style.display = gameMode==='mouse' ? 'grid' : 'none';
+  $('res-grid-osu').style.display = gameMode==='osu' ? 'grid' : 'none';
+  $('res-watch').style.display = gameMode==='watch' ? 'block' : 'none';
+
+  if(failed) {
+     $('res-title').textContent = "FAILED";
+     $('res-title').style.background = "linear-gradient(135deg, #ff0000, #ff8800)";
+     $('res-title').style.webkitBackgroundClip = "text";
+     playHitSound('miss'); // play death sound
+  } else {
+     $('res-title').textContent = "Game Over";
+     $('res-title').style.background = "linear-gradient(135deg,#ff3355,var(--gold))";
+     $('res-title').style.webkitBackgroundClip = "text";
+  }
+
+  if(gameMode==='mouse'){
+    let fs = Math.floor(game.score);
+    let best = parseInt(localStorage.getItem('gzc_best_m')||'0',10);
+    let nb = false; if(fs>best){ best=fs; localStorage.setItem('gzc_best_m',fs); nb=true; }
+    $('r-score').textContent = fs.toLocaleString();
+    $('r-best').textContent = best.toLocaleString();
+    $('r-time').textContent = Math.floor(game.elapsed)+'s';
+    $('r-streak').textContent = game.bestStreak.toFixed(1)+'s';
+  } else if(gameMode==='osu') {
+    $('ro-score').textContent = Math.floor(game.score).toLocaleString();
+    $('ro-combo').textContent = game.bestStreak + 'x';
+    let s = game.osuStats;
+    $('ro-acc').textContent = s.total>0 ? (((s.n300*300 + s.n100*100 + s.n50*50)/(s.total*300))*100).toFixed(1)+'%' : '0%';
+    $('ro-hits').textContent = `${s.n300} / ${s.n100} / ${s.n50} / ${s.nMiss}`;
+  } else {
+    $('rw-time').textContent = fmtTime(game.elapsed);
+  }
+  
+  showScreen('screen-results');
+}
+
+function playAgain(){ $('screen-results').classList.add('hidden'); startCountdown(); }
+function goHome(){
+  if(game && game.active) endGame();
+  ['screen-results','screen-start'].forEach(s=>$(s).classList.add('hidden'));
+  showScreen('screen-start');
+}
+
+document.addEventListener('visibilitychange',()=>{ if(document.hidden&&game&&game.active) goHome(); });
+</script>
+</body>
+</html>
